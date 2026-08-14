@@ -4,7 +4,7 @@ services:
     runtime: node
     rootDir: cloudflare/hipster-meeting-gateway
     plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod
+    buildCommand: pnpm install --frozen-lockfile --prod
     startCommand: node local-relay/server.mjs
     healthCheckPath: /health
     envVars:

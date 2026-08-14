@@ -137,7 +137,8 @@ The repository now contains a Render Blueprint at the root `render.yaml`. It
 points to the same dependency-free Node relay under
 `cloudflare/hipster-meeting-gateway/`, uses the Free Web Service plan, honors
 Render's injected `PORT`, binds `0.0.0.0`, and exposes `/health` for the Render
-health check.
+health check. Its build command uses the preinstalled `pnpm` directly because
+Render's filesystem does not allow `corepack enable` to rewrite `/usr/bin/pnpm`.
 
 The Render service must have one secret environment variable named
 `RELAY_SHARED_SECRET`. Use the same server-only value for the Worker secret with

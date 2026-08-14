@@ -1,9 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
-import { createRelayHandler } from "./server.mjs";
+import { createRelayHandler, isMainModulePath } from "./server.mjs";
 
 const SHARED_SECRET = "test-only-shared-secret-that-is-long-enough";
+
+test("recognizes the relay entrypoint on file URLs without extra Linux slashes", () => {
+  const currentPath = fileURLToPath(import.meta.url).replace(
+    /server\.test\.mjs$/u,
+    "server.mjs",
+  );
+  assert.equal(isMainModulePath(`file://${currentPath}`, currentPath), false);
+  assert.equal(
+    isMainModulePath(new URL("./server.mjs", import.meta.url).href, currentPath),
+    true,
+  );
+});
 
 function relayRequest(body, headers = {}) {
   return new Request("http://relay.invalid/meetings", {

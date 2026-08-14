@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import { timingSafeEqual } from "node:crypto";
+import { pathToFileURL } from "node:url";
 
 const HIPSTER_MEETINGS_URL = "https://assess.hipster-dev.com/api/meetings";
 const MAX_REQUEST_BYTES = 8 * 1024;
@@ -198,7 +199,15 @@ function sendNodeResponse(nodeResponse, response) {
   void pump().catch(() => nodeResponse.destroy());
 }
 
-if (import.meta.url === `file:///${process.argv[1]?.replaceAll("\\", "/")}`) {
+export function isMainModulePath(moduleUrl, argvPath) {
+  return argvPath !== undefined && moduleUrl === pathToFileURL(argvPath).href;
+}
+
+const isMainModule =
+  process.argv[1] !== undefined &&
+  isMainModulePath(import.meta.url, process.argv[1]);
+
+if (isMainModule) {
   const sharedSecret = process.env.RELAY_SHARED_SECRET;
   const port = Number(process.env.PORT ?? process.env.RELAY_PORT ?? "8788");
   const bindHost = process.env.RELAY_BIND_HOST ?? "127.0.0.1";
