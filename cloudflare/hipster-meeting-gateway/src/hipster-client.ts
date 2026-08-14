@@ -95,9 +95,17 @@ export class HttpHipsterClient implements HipsterClient {
         "Content-Type": "application/json",
         "User-Agent": "chime-meeting-gateway/1.0",
       });
+      const body =
+        relay?.protocol === "apps_script"
+          ? JSON.stringify({
+              ...request,
+              relay_token: relay.sharedSecret,
+              relay_api_key: apiKey,
+            })
+          : JSON.stringify(request);
       if (relay === undefined) {
         headers.set("x-api-key", apiKey);
-      } else {
+      } else if (relay.protocol !== "apps_script") {
         headers.set("Authorization", `Bearer ${relay.sharedSecret}`);
         headers.set("x-relay-hipster-key", apiKey);
       }
@@ -106,7 +114,7 @@ export class HttpHipsterClient implements HipsterClient {
         {
         method: "POST",
         headers,
-        body: JSON.stringify(request),
+        body,
         signal: controller.signal,
         },
       );

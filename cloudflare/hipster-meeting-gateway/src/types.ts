@@ -49,6 +49,7 @@ export interface HipsterUpstreamResponse {
 export interface HipsterRelayConfig {
   readonly url: string;
   readonly sharedSecret: string;
+  readonly protocol?: "headers" | "apps_script";
 }
 
 export interface HipsterClient {

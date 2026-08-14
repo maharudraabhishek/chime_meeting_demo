@@ -471,10 +471,13 @@ function readRelayConfig(env: GatewayEnv): HipsterRelayConfig | null | undefined
   ) {
     return null;
   }
-  url.pathname = "/meetings";
+  if (url.hostname !== "script.google.com") {
+    url.pathname = "/meetings";
+  }
   url.search = "";
   url.hash = "";
-  return { url: url.toString(), sharedSecret };
+  const protocol = url.hostname === "script.google.com" ? "apps_script" : "headers";
+  return { url: url.toString(), sharedSecret, protocol };
 }
 
 interface SuccessEnvelope {
