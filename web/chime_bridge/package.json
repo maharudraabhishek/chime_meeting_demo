@@ -1,0 +1,19 @@
+{
+  "name": "chime-meeting-web-bridge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "esbuild test/index.test.ts --bundle --platform=node --format=esm --target=node20 --outfile=.test-dist/index.test.mjs --legal-comments=none && node --test .test-dist/index.test.mjs"
+  },
+  "dependencies": {
+    "amazon-chime-sdk-js": "3.32.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  },
+  "packageManager": "pnpm@10.15.1"
+}

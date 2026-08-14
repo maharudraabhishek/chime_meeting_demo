@@ -1,0 +1,25 @@
+name: chime_meeting
+description: "Flutter app for secure 1:1 Amazon Chime meetings."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.1
+
+dependencies:
+  connectivity_plus: ^7.3.1
+  flutter:
+    sdk: flutter
+  equatable: 2.1.0
+  flutter_bloc: 9.1.1
+  get_it: 9.2.1
+  http: 1.6.0
+  web: 1.1.1
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+  flutter_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true

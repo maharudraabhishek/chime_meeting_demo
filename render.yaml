@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: hipster-meeting-relay
+    runtime: node
+    rootDir: cloudflare/hipster-meeting-gateway
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod
+    startCommand: node local-relay/server.mjs
+    healthCheckPath: /health
+    envVars:
+      - key: RELAY_SHARED_SECRET
+        sync: false
+      - key: RELAY_BIND_HOST
+        value: 0.0.0.0

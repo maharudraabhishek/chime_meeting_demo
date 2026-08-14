@@ -1,0 +1,28 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "hipster-meeting-gateway",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-14",
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "invocation_logs": true,
+      "head_sampling_rate": 1
+    }
+  },
+  "secrets": {
+    "required": [
+      "HIPSTER_API_KEY",
+      "HIPSTER_RELAY_URL",
+      "RELAY_SHARED_SECRET"
+    ]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "hipster-meeting-context",
+      "database_id": "dbe6b66f-290a-4533-85b1-057f01689c52",
+      "migrations_dir": "migrations"
+    }
+  ]
+}

@@ -1,0 +1,93 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+
+# Cloudflare local state / secrets
+**/.dev.vars
+**/.dev.vars.*
+**/.wrangler/
+**/node_modules/
+**/.test-dist/
+.env.*
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Local development and release signing artifacts
+.env
+*.jks
+*.keystore
+key.properties
+
+# Local assistant configuration.
+# Keep these machine-local working files out of source control.
+**/.codex/
+**/.agents/
+**/.ai/
+**/.claude/
+**/.cursor/
+**/.windsurf/
+**/.aider/
+**/.continue/
+**/.copilot/
+**/.roo/
+**/.cody/
+**/AGENTS.md
+**/AGENTS.override.md
+**/CODEX.md
+**/CLAUDE.md
+**/GEMINI.md
+**/AI.md
+**/.aider.conf.yml
+**/.aider.chat.history.md
+**/.github/copilot-instructions.md
+**/.github/instructions/
+/STATUS.md
+/changelog/ai/
+
+# Employer-provided private references are local-only. The Postman collection
+# can contain credentials and must never be published.
+/docs/reference/
+
+# Final APK/video handoff artifacts are delivered separately from source.
+/artifacts/

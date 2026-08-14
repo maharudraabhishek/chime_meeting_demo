@@ -1,0 +1,18 @@
+{
+  "name": "hipster-meeting-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run test/gateway.test.ts && node --test local-relay/server.test.mjs",
+    "relay:local": "node local-relay/server.mjs",
+    "relay:render": "node local-relay/server.mjs",
+    "wrangler": "wrangler"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2",
+    "vitest": "4.1.10",
+    "wrangler": "4.123.0"
+  }
+}
