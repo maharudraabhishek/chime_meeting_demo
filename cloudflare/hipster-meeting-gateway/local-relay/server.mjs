@@ -127,6 +127,10 @@ export function createRelayHandler({ sharedSecret, fetchImplementation = fetch }
         headers: {
           Accept: "application/json",
           "Content-Type": "application/json",
+          // Hipster's hosting layer challenges requests with no user agent.
+          // The former Flutter client always sent one; preserve that benign
+          // request characteristic while keeping credentials server-side.
+          "User-Agent": "chime-meeting-relay/1.0",
           "x-api-key": hipsterApiKey,
         },
         body: JSON.stringify(body),
@@ -211,8 +215,17 @@ if (isMainModule) {
   const sharedSecret = process.env.RELAY_SHARED_SECRET;
   const port = Number(process.env.PORT ?? process.env.RELAY_PORT ?? "8788");
   const bindHost = process.env.RELAY_BIND_HOST ?? "127.0.0.1";
-  if (typeof sharedSecret !== "string" || sharedSecret.length < 32) {
-    console.error("Local relay configuration is missing.");
+  const sharedSecretPresent = typeof sharedSecret === "string";
+  const sharedSecretLengthValid =
+    sharedSecretPresent && sharedSecret.length >= 32;
+  if (!sharedSecretLengthValid) {
+    console.error(
+      JSON.stringify({
+        event: "relay_startup_configuration_invalid",
+        relaySharedSecretPresent: sharedSecretPresent,
+        relaySharedSecretLengthValid: sharedSecretLengthValid,
+      }),
+    );
     process.exit(1);
   }
   if (!Number.isInteger(port) || port < 1024 || port > 65535) {

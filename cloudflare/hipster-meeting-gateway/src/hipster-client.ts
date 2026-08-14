@@ -93,6 +93,7 @@ export class HttpHipsterClient implements HipsterClient {
       const headers = new Headers({
         Accept: "application/json",
         "Content-Type": "application/json",
+        "User-Agent": "chime-meeting-gateway/1.0",
       });
       if (relay === undefined) {
         headers.set("x-api-key", apiKey);
