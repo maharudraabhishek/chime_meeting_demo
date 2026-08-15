@@ -86,30 +86,4 @@ app.*.map.json
 .env
 key.properties
 
-# Local assistant configuration.
-# Keep these machine-local working files out of source control.
-**/.codex/
-**/.agents/
-**/.ai/
-**/.claude/
-**/.cursor/
-**/.windsurf/
-**/.aider/
-**/.continue/
-**/.copilot/
-**/.roo/
-**/.cody/
-**/AGENTS.md
-**/AGENTS.override.md
-**/CODEX.md
-**/CLAUDE.md
-**/GEMINI.md
-**/AI.md
-**/.aider.conf.yml
-**/.aider.chat.history.md
-**/.github/copilot-instructions.md
-**/.github/instructions/
-/STATUS.md
-/changelog/ai/
-
 /docs/reference/
