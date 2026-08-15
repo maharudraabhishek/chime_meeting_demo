@@ -22,11 +22,7 @@ final class AppConfig {
   ///
   /// Raises [AppConfigurationException] when the public gateway URL is invalid.
   factory AppConfig.fromEnvironment() {
-    const rawApiBaseUrl = String.fromEnvironment(
-      'MEETING_API_BASE_URL',
-      defaultValue:
-          'https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev/',
-    );
+    const rawApiBaseUrl = String.fromEnvironment('MEETING_API_BASE_URL');
     return AppConfig(apiBaseUrl: rawApiBaseUrl);
   }
 

@@ -577,8 +577,7 @@ keyPassword=<local-secret>
 Build:
 
 ```powershell
-flutter build appbundle --release `
-  --dart-define=MEETING_API_BASE_URL=https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev/
+flutter build appbundle --release --dart-define=MEETING_API_BASE_URL=YOUR_CLOUDFlARE_WORKER_URL
 ```
 
 Never commit the keystore or `key.properties`.
