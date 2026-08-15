@@ -28,7 +28,6 @@ The **normal backend is Cloudflare Worker + D1 only**. The relay paths exist bec
 Preferred path:
 
 ```mermaid
-%%{init: {"theme":"dark","darkMode":true}}%%
 graph LR;
     A[Flutter app] --> B[Cloudflare Worker];
     B --> C[Cloudflare D1];
@@ -41,7 +40,6 @@ graph LR;
 Compatibility path, used only when the upstream hosting layer challenges Cloudflare server egress:
 
 ```mermaid
-%%{init: {"theme":"dark","darkMode":true}}%%
 graph LR;
     A[Flutter app] --> B[Cloudflare Worker];
     B --> C[Cloudflare D1];
@@ -433,7 +431,6 @@ Quick Tunnel is development infrastructure. The local machine, Node process, tun
 The relay is a server-to-server compatibility hop. Flutter never calls it directly:
 
 ```mermaid
-%%{init: {"theme":"dark","darkMode":true}}%%
 graph LR;
     A[Flutter app] --> B[Cloudflare Worker];
     B --> C[Cloudflare D1];
