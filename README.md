@@ -2,29 +2,49 @@
 
 A production-oriented Flutter client for secure 1:1 real-time meetings using Amazon Chime. The application separates meeting bootstrap, presentation state, platform media, and backend credential handling so that the UI remains SDK-agnostic and the meeting lifecycle is explicit, observable, and testable.
 
-The primary product scope is Flutter mobile. Android uses the native Amazon Chime SDK through a Kotlin bridge. The repository also contains an optional Chrome adapter used during development and integration testing; it is deliberately isolated behind the same domain gateway and does not change the mobile architecture.
+The target product scope is a Flutter mobile application for **Android and iOS**. The current native Amazon Chime media implementation is complete on Android. The iOS project and privacy configuration are present, while the native iOS Chime adapter remains a documented limitation. Chrome/Web support is additional development and integration tooling and is not part of the primary mobile scope.
 
 ## Table of contents
 
 1. [Overview](#overview)
-2. [Architecture](#architecture)
+2. [Scope and implementation approach](#scope-and-implementation-approach)
+3. [Architecture](#architecture)
    - [System architecture](#system-architecture-at-a-glance)
    - [Flutter architecture](#flutter-architecture-clean-architecture--bloc)
    - [Dependency injection](#dependency-injection)
    - [Repository layout](#repository-layout)
-3. [Meeting lifecycle](#meeting-lifecycle)
-4. [Control plane: Create and Join](#control-plane-meeting-creation-and-join)
-5. [Data flow and trust boundaries](#data-flow-and-trust-boundaries)
-6. [Media plane: Amazon Chime](#media-plane-amazon-chime)
-7. [Reliability and error handling](#reliability-and-error-handling)
-8. [Observability](#observability)
-9. [Security model](#security-model)
-10. [Backend: Cloudflare Worker and D1](#backend-cloudflare-worker-and-d1)
-11. [Setup and run](#setup-and-run)
-12. [Failure scenarios](#failure-scenarios-and-expected-behavior)
-13. [Engineering decisions and trade-offs](#engineering-decisions-and-trade-offs)
-14. [Known limitations](#known-limitations)
-15. [Documentation](#documentation)
+4. [Meeting lifecycle](#meeting-lifecycle)
+5. [Control plane: Create and Join](#control-plane-meeting-creation-and-join)
+6. [Data flow and trust boundaries](#data-flow-and-trust-boundaries)
+7. [Media plane: Amazon Chime](#media-plane-amazon-chime)
+8. [Reliability and error handling](#reliability-and-error-handling)
+9. [Observability](#observability)
+10. [Security model](#security-model)
+11. [Backend: Cloudflare Worker and D1](#backend-cloudflare-worker-and-d1)
+12. [Setup and run](#setup-and-run)
+13. [Validation](#validation)
+14. [Failure scenarios](#failure-scenarios-and-expected-behavior)
+15. [Engineering decisions and trade-offs](#engineering-decisions-and-trade-offs)
+16. [Known limitations](#known-limitations)
+17. [Documentation](#documentation)
+
+---
+
+## Application walkthrough
+
+The screenshots below show the main Android meeting lifecycle: starting from the idle state, creating a meeting, establishing the Amazon Chime session, entering the active call UI, and observing the SDK-backed event stream.
+
+| Idle — Create or Join | Creating Meeting | Starting Chime Session |
+| :---: | :---: | :---: |
+| <img src="docs/assets/screenshots/main-screen.jpg" width="220" alt="Chime Meeting idle screen"> | <img src="docs/assets/screenshots/create-meeting-1.jpg" width="220" alt="Creating a new Chime meeting"> | <img src="docs/assets/screenshots/meeting-creation.jpg" width="220" alt="Connecting to the created Chime meeting"> |
+
+| Connected Call | Meeting Event Log | |
+| :---: | :---: | :---: |
+| <img src="docs/assets/screenshots/meeting-created-live.jpg" width="220" alt="Connected Amazon Chime meeting call screen"> | <img src="docs/assets/screenshots/meeting-logs.jpg" width="220" alt="Amazon Chime meeting callback event log"> | |
+
+The UI reflects the same lifecycle described by the architecture below. A successful Create/Join API response only provides the meeting bootstrap; the application remains in `joining` until Amazon Chime reports that the media session has started.
+
+The event-log view exposes SDK-derived lifecycle and media callbacks without logging meeting credentials or attendee tokens.
 
 ---
 
@@ -46,6 +66,25 @@ The primary product scope is Flutter mobile. Android uses the native Amazon Chim
 - Server-side API credential handling through Cloudflare Worker secrets.
 - D1-based `MediaPlacement` recovery without persisting attendee credentials.
 
+## Deployed environment
+
+The Flutter client uses one public control-plane endpoint:
+
+```text
+MEETING_API_BASE_URL=https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev/
+```
+
+Public routes:
+
+```text
+GET  https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev/health
+POST https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev/meetings
+```
+
+The Worker URL is public configuration, not a credential. Flutter never receives the upstream API key, the relay shared secret, or the Render relay URL. Those values remain on server-side infrastructure.
+
+The compatibility relay is deployed from the repository's `render.yaml` as the Render service `hipster-meeting-relay`. Render starts `node local-relay/server.mjs`. Its generated HTTPS URL is stored only in the Worker as `HIPSTER_RELAY_URL`; the Flutter application never calls Render directly. If the upstream accepts Cloudflare egress, the relay is not part of the request path at all.
+
 ## Platform status
 
 | Platform | Status | Media integration |
@@ -55,6 +94,39 @@ The primary product scope is Flutter mobile. Android uses the native Amazon Chim
 | Chrome/Web | Optional development and integration path | Locally bundled Amazon Chime SDK for JavaScript `3.32.0`, typed Dart JS interop, WebRTC, and HTML video surfaces |
 
 The browser implementation is an additional engineering/debugging path. It is not required for the mobile application architecture and can be excluded from a mobile-only deployment.
+
+---
+
+# Scope and implementation approach
+
+## In scope
+
+- secure 1:1 real-time meetings;
+- Flutter mobile architecture targeting Android and iOS;
+- Amazon Chime media integration behind a platform-neutral domain gateway;
+- meeting creation and exact-ID join through the supplied meeting API;
+- six explicit lifecycle states: `idle`, `joining`, `connected`, `reconnecting`, `disconnected`, and `failed`;
+- Chime callback/event mapping, lifecycle resilience, reconnect handling, diagnostics, and bounded observability;
+- production-oriented credential custody and backend request validation.
+
+## Out of scope
+
+- group calling;
+- screen sharing;
+- persistent meeting history;
+- custom signaling or media servers;
+- replacing Chime's transport-level retry logic with application-owned reconnect loops.
+
+## Implementation strategy
+
+1. Keep meeting bootstrap and media-session ownership separate.
+2. Keep Chime SDK types outside Flutter presentation and domain layers.
+3. Make `MeetingBloc` the single application-level lifecycle authority.
+4. Treat SDK callbacks, not REST success, as the source of truth for media connectivity.
+5. Keep provider credentials server-side behind the Cloudflare Worker.
+6. Persist only reusable meeting context; never persist attendee credentials or JoinTokens.
+7. Add bounded watchdogs around SDK-controlled startup/recovery rather than competing with Chime's transport behavior.
+8. Keep optional compatibility infrastructure behind the same public Worker contract so Flutter does not change when egress routing changes.
 
 ---
 
@@ -68,27 +140,28 @@ The application has two independent paths after a meeting action:
 - the **media plane** owns the active Amazon Chime session.
 
 ```mermaid
-flowchart TD
-    A[User] --> B[Flutter UI]
-    B --> C[MeetingBloc]
-    C --> D[CreateMeeting or JoinMeeting]
-    D --> E[MeetingRepository]
-    E --> F[Meeting API data source]
-    F --> G[HTTP JSON client]
-    G --> H[Cloudflare Worker]
-    H --> I[Cloudflare D1]
-    I --> H
-    H --> J[Direct upstream path]
-    J --> K[Provided meeting API]
-    H --> L[Compatibility relay path]
-    L --> M[Authenticated relay]
-    M --> K
-    D --> N[MeetingMediaGateway]
-    N --> O[Android Chime adapter]
-    O --> P[Amazon Chime Android SDK]
-    P --> O
-    O --> C
-    C --> B
+%%{init: {"theme":"dark","darkMode":true}}%%
+graph TD;
+    A[User] --> B[Flutter UI];
+    B --> C[MeetingBloc];
+    C --> D[CreateMeeting or JoinMeeting];
+    D --> E[MeetingRepository];
+    E --> F[Meeting API data source];
+    F --> G[HTTP JSON client];
+    G --> H[Cloudflare Worker public endpoint];
+    H --> I[Cloudflare D1 meeting context];
+    I --> H;
+    H --> J[Direct upstream route];
+    J --> K[Provided meeting API];
+    H --> L[Compatibility relay route];
+    L --> M[Render Node relay];
+    M --> K;
+    D --> N[MeetingMediaGateway];
+    N --> O[Android Chime adapter];
+    O --> P[Amazon Chime Android SDK];
+    P --> O;
+    O --> C;
+    C --> B;
 ```
 
 The two Worker-to-upstream paths are deployment alternatives, not parallel requests. Under normal conditions the Worker calls the provided meeting API directly. The relay path is used only when the upstream hosting layer rejects Cloudflare server egress; that case is described later in [Why the optional relay exists](#why-the-optional-relay-exists).
@@ -100,19 +173,20 @@ The project uses **feature-first Clean Architecture with BLoC state management**
 `MeetingBloc` owns presentation orchestration and publishes immutable `MeetingState`; widgets render that state and dispatch user intent. Domain use cases and contracts remain independent of Flutter UI concerns, while data and infrastructure layers isolate REST, connectivity, permissions, and platform-specific Chime integration.
 
 ```mermaid
-flowchart TD
-    A[Flutter pages and widgets] --> B[MeetingBloc and MeetingState]
-    B --> A
-    B --> C[CreateMeeting and JoinMeeting]
-    B --> D[Connectivity gateway]
-    B --> E[Permission gateway]
-    C --> F[Domain contracts]
-    F --> G[MeetingRepositoryImpl]
-    F --> H[Platform media gateway]
-    G --> I[Meeting API data source]
-    I --> J[DTO validation and mapping]
-    I --> K[HTTP JSON client]
-    H --> L[Android Chime adapter]
+%%{init: {"theme":"dark","darkMode":true}}%%
+graph TD;
+    A[Flutter pages and widgets] --> B[MeetingBloc and MeetingState];
+    B --> A;
+    B --> C[CreateMeeting and JoinMeeting];
+    B --> D[Connectivity gateway];
+    B --> E[Permission gateway];
+    C --> F[Domain contracts];
+    F --> G[MeetingRepositoryImpl];
+    F --> H[Platform media gateway];
+    G --> I[Meeting API data source];
+    I --> J[DTO validation and mapping];
+    I --> K[HTTP JSON client];
+    H --> L[Android Chime adapter];
 ```
 
 ### Dependency injection
@@ -178,20 +252,21 @@ docs/                            # Detailed architecture/operations notes
 `MeetingBloc` is the only application-level authority for the active meeting lifecycle. A REST response or a successful call to `MeetingMediaGateway.start()` does **not** mark the call connected. The application remains in `joining` until Amazon Chime emits the session-start callback.
 
 ```mermaid
-flowchart TD
-    A[Idle] --> B[Joining]
-    B --> C[Connected]
-    B --> D[Disconnected]
-    B --> E[Failed]
-    B --> A
-    C --> F[Reconnecting]
-    F --> C
-    F --> E
-    C --> E
-    C --> D
-    F --> D
-    D --> B
-    E --> B
+%%{init: {"theme":"dark","darkMode":true}}%%
+graph TD;
+    A[Idle] --> B[Joining];
+    B --> C[Connected];
+    B --> D[Disconnected];
+    B --> E[Failed];
+    B --> A;
+    C --> F[Reconnecting];
+    F --> C;
+    F --> E;
+    C --> E;
+    C --> D;
+    F --> D;
+    D --> B;
+    E --> B;
 ```
 
 ### Session ownership and stale-callback protection
@@ -226,11 +301,11 @@ Flutter communicates with one public backend base URL supplied through `MEETING_
 | Source | Destination | Call | Authentication/data policy |
 | --- | --- | --- | --- |
 | Flutter | Cloudflare Worker | `GET /health` when manually checked | Public health endpoint |
-| Flutter | Cloudflare Worker | `POST /meetings` | JSON only; no `x-api-key` |
+| Flutter | Cloudflare Worker `https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev` | `POST /meetings` | JSON only; no upstream API credential |
 | Worker | D1 | Read/write meeting context | Meeting ID + placement + optional region + timestamps only |
 | Worker | Provided meeting API | `POST /api/meetings` | Server-side `x-api-key`; direct mode |
-| Worker | Optional relay | `POST /meetings` | Server-only relay authentication; compatibility mode |
-| Relay | Provided meeting API | `POST /api/meetings` | Server-side `x-api-key`, forwarded transiently |
+| Worker | Render/local compatibility relay | `POST /meetings` | Server-to-server bearer authentication; provider key forwarded transiently only in compatibility mode |
+| Render/local relay | Provided meeting API | `POST /api/meetings` | Provider key applied as upstream `x-api-key`; never returned to Flutter or persisted by the relay |
 | Active client | Amazon Chime endpoints | Signaling/media traffic | Chime-issued meeting/attendee configuration held in memory |
 
 ## Create request
@@ -246,22 +321,23 @@ Flutter sends:
 The Worker validates the response before it is returned to the app. Create requires a meeting identifier, attendee credentials, and valid Chime `MediaPlacement`.
 
 ```mermaid
-flowchart TD
-    A[User taps Create] --> B[MeetingBloc]
-    B --> C[Connectivity and permission preflight]
-    C --> D[CreateMeeting use case]
-    D --> E[Repository and HTTP]
-    E --> F[Cloudflare Worker]
-    F --> G[Provided meeting API]
-    G --> H[Meeting and creator attendee]
-    H --> F
-    F --> I[Validate meeting and MediaPlacement]
-    I --> J[Store placement context in D1]
-    J --> K[Return validated bootstrap]
-    K --> L[MeetingMediaGateway]
-    L --> M[Amazon Chime]
-    M --> N[Session started callback]
-    N --> O[Connected UI state]
+%%{init: {"theme":"dark","darkMode":true}}%%
+graph TD;
+    A[User taps Create] --> B[MeetingBloc];
+    B --> C[Connectivity and permission preflight];
+    C --> D[CreateMeeting use case];
+    D --> E[Repository and HTTP];
+    E --> F[Cloudflare Worker];
+    F --> G[Provided meeting API];
+    G --> H[Meeting and creator attendee];
+    H --> F;
+    F --> I[Validate meeting and MediaPlacement];
+    I --> J[Store placement context in D1];
+    J --> K[Return validated bootstrap];
+    K --> L[MeetingMediaGateway];
+    L --> M[Amazon Chime];
+    M --> N[Session started callback];
+    N --> O[Connected UI state];
 ```
 
 The Worker waits for the D1 context write before returning Create success. This makes the same meeting immediately joinable even when the upstream Join response does not repeat `MediaPlacement`.
@@ -280,25 +356,26 @@ Flutter validates and trims the user-supplied meeting ID, then sends the exact b
 A Join request always obtains a **fresh attendee** from the current upstream response. Cached creator credentials are never reused.
 
 ```mermaid
-flowchart TD
-    A[User enters exact MeetingId] --> B[Flutter Join flow]
-    B --> C[Cloudflare Worker]
-    C --> D[Provided meeting API]
-    D --> E[Matching meeting and fresh attendee]
-    E --> F[Verify returned MeetingId]
-    F --> G[Check MediaPlacement]
-    G --> H[Placement present]
-    H --> I[Refresh D1 context]
-    I --> J[Return current response]
-    G --> K[Placement omitted]
-    K --> L[Load exact D1 context]
-    L --> M[Valid context found]
-    M --> N[Merge placement with fresh attendee]
-    N --> J
-    L --> O[Context unavailable]
-    O --> P[Return without invented media data]
-    P --> Q[Typed missing media configuration failure]
-    J --> R[Start Amazon Chime session]
+%%{init: {"theme":"dark","darkMode":true}}%%
+graph TD;
+    A[User enters exact MeetingId] --> B[Flutter Join flow];
+    B --> C[Cloudflare Worker];
+    C --> D[Provided meeting API];
+    D --> E[Matching meeting and fresh attendee];
+    E --> F[Verify returned MeetingId];
+    F --> G[Check MediaPlacement];
+    G --> H[Placement present];
+    H --> I[Refresh D1 context];
+    I --> J[Return current response];
+    G --> K[Placement omitted];
+    K --> L[Load exact D1 context];
+    L --> M[Valid context found];
+    M --> N[Merge placement with fresh attendee];
+    N --> J;
+    L --> O[Context unavailable];
+    O --> P[Return without invented media data];
+    P --> Q[Typed missing media configuration failure];
+    J --> R[Start Amazon Chime session];
 ```
 
 ### Why D1 exists
@@ -332,20 +409,35 @@ If a valid exact-match placement cannot be recovered, the system fails safely. I
 This is the end-to-end data flow independently of the UI architecture.
 
 ```mermaid
-flowchart LR
-    A[Public gateway URL] --> B[Flutter client]
-    B --> C[Create or Join JSON]
-    C --> D[Cloudflare Worker]
-    E[Worker API secret] --> D
-    D --> F[Provided meeting API]
-    F --> D
-    D --> G[D1 meeting context]
-    G --> D
-    D --> B
-    B --> H[MeetingBootstrap in memory]
-    H --> I[Chime media adapter]
-    I --> J[Amazon Chime]
+%%{init: {"theme":"dark","darkMode":true}}%%
+graph LR;
+    A[Flutter app] --> B[Create or Join JSON];
+    B --> C[Cloudflare Worker];
+    D[HIPSTER API key Worker secret] --> C;
+    E[Relay shared secret Worker secret] --> C;
+    C --> F[Cloudflare D1 placement context];
+    F --> C;
+    C --> G[Direct route];
+    G --> H[Provided meeting API];
+    H --> G;
+    G --> C;
+    C --> I[Compatibility route];
+    I --> J[Render Node relay];
+    J --> H;
+    H --> J;
+    J --> I;
+    I --> C;
+    C --> A;
+    A --> K[MeetingBootstrap in memory];
+    K --> L[Chime media adapter];
+    L --> M[Amazon Chime];
 ```
+### Control-plane routing
+
+The client always sends Create/Join JSON to the Cloudflare Worker. In **direct mode**, the Worker injects the upstream credential and calls the provided meeting API itself. In **compatibility mode**, the Worker authenticates to the Render/local relay using the server-only relay secret and forwards the provider credential transiently; the relay validates the fixed `/meetings` route and then calls the same upstream meeting API.
+
+`render.yaml` deploys the relay as a Node service using `node local-relay/server.mjs`. The relay is deliberately stateless for meeting identity: D1 remains owned by the Worker, and attendee credentials are never stored in D1 or by the relay. The egress hop can therefore change without changing Flutter, BLoC, domain contracts, or the Chime media path.
+
 
 ### Data classification
 
@@ -371,18 +463,19 @@ Meeting bootstrap credentials are retained only as long as required to construct
 Android keeps the Chime SDK behind a native adapter rather than exposing SDK objects to Dart.
 
 ```mermaid
-flowchart LR
-    A[MeetingBloc] --> B[MeetingMediaGateway]
-    B --> C[Dart ChimePlatformBridge]
-    C --> D[MethodChannel]
-    D --> E[Kotlin ChimePlatformBridge]
-    E --> F[ChimeSessionController]
-    F --> G[Amazon Chime Android SDK]
-    G --> F
-    F --> H[EventChannel]
-    H --> C
-    C --> A
-    F --> I[Native Chime PlatformViews]
+%%{init: {"theme":"dark","darkMode":true}}%%
+graph LR;
+    A[MeetingBloc] --> B[MeetingMediaGateway];
+    B --> C[Dart ChimePlatformBridge];
+    C --> D[MethodChannel];
+    D --> E[Kotlin ChimePlatformBridge];
+    E --> F[ChimeSessionController];
+    F --> G[Amazon Chime Android SDK];
+    G --> F;
+    F --> H[EventChannel];
+    H --> C;
+    C --> A;
+    F --> I[Native Chime PlatformViews];
 ```
 
 ### Session startup
@@ -519,16 +612,17 @@ Sanitized response headers such as `X-Request-Id` and `X-Gateway-Result-Category
 # Security model
 
 ```mermaid
-flowchart TD
-    A[Flutter app] --> B[Cloudflare Worker]
-    C[Worker API secret] --> B
-    B --> D[D1 meeting context]
-    D --> B
-    B --> E[Direct upstream path]
-    E --> F[Provided meeting API]
-    B --> G[Compatibility relay path]
-    G --> H[Authenticated relay]
-    H --> F
+%%{init: {"theme":"dark","darkMode":true}}%%
+graph TD;
+    A[Flutter app] --> B[Cloudflare Worker];
+    C[Worker API secret] --> B;
+    B --> D[D1 meeting context];
+    D --> B;
+    B --> E[Direct upstream path];
+    E --> F[Provided meeting API];
+    B --> G[Compatibility relay path];
+    G --> H[Authenticated relay];
+    H --> F;
 ```
 
 Security decisions implemented in the repository:
@@ -557,6 +651,10 @@ The repository contains a Chrome-only direct-fetch diagnostic shim. Its local ke
 
 # Backend: Cloudflare Worker and D1
 
+The deployed public Worker for this repository is `https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev/`. Flutter treats that URL as `MEETING_API_BASE_URL`. The Worker is the only backend address the client needs to know.
+
+The optional Render relay is provisioned by `render.yaml` as service `hipster-meeting-relay` and starts `node local-relay/server.mjs`. Its generated HTTPS URL is configured in the Worker through `HIPSTER_RELAY_URL`, so changing relay egress does not require a Flutter rebuild.
+
 The backend adapter is intentionally small. Flutter still owns the product flow; the Worker owns only concerns that should not live in a client binary:
 
 - secret custody;
@@ -572,11 +670,12 @@ The backend adapter is intentionally small. Flutter still owns the product flow;
 When the upstream accepts Cloudflare server egress, no relay host is needed:
 
 ```mermaid
-flowchart LR
-    A[Flutter app] --> B[Cloudflare Worker]
-    B --> C[Cloudflare D1]
-    C --> B
-    B --> D[Provided meeting API]
+%%{init: {"theme":"dark","darkMode":true}}%%
+graph LR;
+    A[Flutter app] --> B[Cloudflare Worker];
+    B --> C[Cloudflare D1];
+    C --> B;
+    B --> D[Provided meeting API];
 ```
 
 This is the preferred deployment: **Cloudflare Worker + D1 are the only project backend components required.**
@@ -590,14 +689,15 @@ That response cannot be treated as meeting success because it contains no usable
 Because the upstream hosting configuration is outside this repository's control, an authenticated relay was added as an **egress compatibility option**. It preserves the same Flutter request, Worker validation, D1 behavior, upstream JSON contract, and server-side credential ownership; only the network egress seen by the upstream changes.
 
 ```mermaid
-flowchart TD
-    A[Preferred path] --> B[Flutter app]
-    B --> C[Cloudflare Worker]
-    C --> D[Provided meeting API]
-    E[Compatibility path] --> F[Flutter app]
-    F --> G[Cloudflare Worker]
-    G --> H[Authenticated relay]
-    H --> I[Provided meeting API]
+%%{init: {"theme":"dark","darkMode":true}}%%
+graph TD;
+    A[Preferred path] --> B[Flutter app];
+    B --> C[Cloudflare Worker];
+    C --> D[Provided meeting API];
+    E[Compatibility path] --> F[Flutter app];
+    F --> G[Cloudflare Worker];
+    G --> H[Authenticated relay];
+    H --> I[Provided meeting API];
 ```
 
 The relay is not a workaround for invalid JSON, D1, or Flutter behavior. It exists only for the observed upstream anti-bot/network-identity boundary.
@@ -611,6 +711,27 @@ The full environment, deployment, local-run, relay, Render, optional browser, an
 **[docs/SETUP_AND_RUN.md](docs/SETUP_AND_RUN.md)**
 
 For the normal deployment path, only the **Cloudflare Worker + D1** backend is required. The relay options documented there are compatibility paths for environments where the upstream hosting layer challenges Cloudflare server egress instead of returning the expected meeting JSON.
+
+---
+
+# Validation
+
+The current Android implementation has been exercised through the main 1:1 meeting path, including:
+
+- dependency resolution, static analysis, tests, and Android build validation;
+- meeting creation through the public Worker;
+- joining an existing `MeetingId` with fresh attendee credentials;
+- Amazon Chime session startup;
+- local and remote media;
+- microphone mute/unmute and camera controls;
+- leave and rejoin;
+- lifecycle state transitions and callback/event logging;
+- reconnect and failure-handling paths;
+- diagnostics and the bounded last-50 event log.
+
+API success is treated only as bootstrap success. Runtime validation considers the call connected only when the Chime session-start callback reaches the current owned session.
+
+The native iOS Chime adapter is not implemented and is therefore not represented as runtime-validated. Reproduction commands and deployment steps are in [Setup and Run](docs/SETUP_AND_RUN.md).
 
 ---
 
@@ -675,7 +796,16 @@ The compatibility relay was introduced only because an external anti-bot layer c
 
 # Documentation
 
-The repository keeps implementation detail outside the root README where it is operationally useful.
+The repository keeps implementation detail outside the root README where it is operationally useful. The root README is the system overview; the linked documents are intended to be read by responsibility rather than as one monolithic specification.
+
+### How to use the docs
+
+- Start with **this README** for architecture, lifecycle, security boundaries, and major engineering decisions.
+- Use **Setup and Run** when reproducing the application or deploying Cloudflare/Render infrastructure.
+- Use **Architecture** when reviewing BLoC ownership, platform boundaries, reconnect behavior, and cleanup.
+- Use **Gateway Data Flow** when tracing Create/Join, D1 recovery, credentials, and server-to-server routing.
+- Use **Cloudflare Gateway** for Worker/D1 operations, secret management, relay configuration, and safe diagnostics.
+- Use **Android Troubleshooting** and **Android Release** for native integration and packaging work.
 
 | Document | Purpose |
 | --- | --- |

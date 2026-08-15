@@ -7,18 +7,19 @@ The **normal backend is Cloudflare Worker + D1 only**. The relay paths exist bec
 ## Table of contents
 
 1. [Deployment model](#deployment-model)
-2. [Prerequisites](#prerequisites)
-3. [Flutter dependencies](#flutter-dependencies)
-4. [Cloudflare Worker and D1](#cloudflare-worker-and-d1)
-5. [Run the Android app](#run-the-android-app)
-6. [Create and Join a meeting](#create-and-join-a-meeting)
-7. [When a compatibility relay is required](#when-a-compatibility-relay-is-required)
-8. [Local relay with Cloudflare Quick Tunnel](#local-relay-with-cloudflare-quick-tunnel)
-9. [Render relay](#render-relay)
-10. [Apps Script fallback](#apps-script-fallback)
-11. [Optional Chrome development adapter](#optional-chrome-development-adapter)
-12. [Build and validation](#build-and-validation)
-13. [Troubleshooting setup failures](#troubleshooting-setup-failures)
+2. [Deployed endpoint](#deployed-endpoint)
+3. [Prerequisites](#prerequisites)
+4. [Flutter dependencies](#flutter-dependencies)
+5. [Cloudflare Worker and D1](#cloudflare-worker-and-d1)
+6. [Run the Android app](#run-the-android-app)
+7. [Create and Join a meeting](#create-and-join-a-meeting)
+8. [When a compatibility relay is required](#when-a-compatibility-relay-is-required)
+9. [Local relay with Cloudflare Quick Tunnel](#local-relay-with-cloudflare-quick-tunnel)
+10. [Render relay](#render-relay)
+11. [Apps Script fallback](#apps-script-fallback)
+12. [Optional Chrome development adapter](#optional-chrome-development-adapter)
+13. [Build and validation](#build-and-validation)
+14. [Troubleshooting setup failures](#troubleshooting-setup-failures)
 
 ---
 
@@ -27,22 +28,29 @@ The **normal backend is Cloudflare Worker + D1 only**. The relay paths exist bec
 Preferred path:
 
 ```mermaid
-flowchart LR
-    A[Flutter app] --> B[Cloudflare Worker]
-    B --> C[Cloudflare D1]
-    C --> B
-    B --> D[Provided meeting API]
+%%{init: {"theme":"dark","darkMode":true}}%%
+graph LR;
+    A[Flutter app] --> B[Cloudflare Worker];
+    B --> C[Cloudflare D1];
+    C --> B;
+    B --> D[Provided meeting API];
+    D --> B;
+    B --> A;
 ```
 
 Compatibility path, used only when the upstream hosting layer challenges Cloudflare server egress:
 
 ```mermaid
-flowchart LR
-    A[Flutter app] --> B[Cloudflare Worker]
-    B --> C[Cloudflare D1]
-    C --> B
-    B --> D[Authenticated relay]
-    D --> E[Provided meeting API]
+%%{init: {"theme":"dark","darkMode":true}}%%
+graph LR;
+    A[Flutter app] --> B[Cloudflare Worker];
+    B --> C[Cloudflare D1];
+    C --> B;
+    B --> D[Render or local Node relay];
+    D --> E[Provided meeting API];
+    E --> D;
+    D --> B;
+    B --> A;
 ```
 
 The Flutter client always calls the public Worker URL. It never needs the upstream API key, relay shared secret, or relay URL.
@@ -66,6 +74,31 @@ The Worker code treats `HIPSTER_RELAY_URL` and `RELAY_SHARED_SECRET` as optional
 The current `wrangler.jsonc` also declares them under `secrets.required` because the repository contains the compatibility deployment. Cloudflare validates every secret listed there before deployment. For a **direct-only Worker deployment**, keep only `HIPSTER_API_KEY` in `secrets.required`. For a **relay deployment**, configure all three secret names.
 
 Do not configure dummy relay secrets. Either deploy direct mode intentionally or configure a real authenticated relay.
+
+---
+
+## Deployed endpoint
+
+The currently deployed public gateway is:
+
+```text
+https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev/
+```
+
+Use it as the Flutter build-time public endpoint:
+
+```text
+MEETING_API_BASE_URL=https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev/
+```
+
+Useful routes:
+
+```text
+GET  https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev/health
+POST https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev/meetings
+```
+
+The URL is safe to publish because it is not an authentication secret. The upstream provider credential remains a Cloudflare Worker secret. The Render relay URL and relay shared secret are server-side configuration and are not required by Flutter.
 
 ---
 
@@ -218,7 +251,7 @@ Health check:
 
 ```powershell
 Invoke-WebRequest `
-  -Uri https://<worker>.workers.dev/health `
+  -Uri https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev/health `
   -Method Get
 ```
 
@@ -244,7 +277,7 @@ Run with an explicit Worker URL:
 
 ```powershell
 flutter run -d <android-device-id> `
-  --dart-define=MEETING_API_BASE_URL=https://<worker>.workers.dev/
+  --dart-define=MEETING_API_BASE_URL=https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev/
 ```
 
 `MEETING_API_BASE_URL` is public configuration. The upstream API credential remains server-side.
@@ -345,6 +378,8 @@ Do not solve this by:
 
 Use this for local compatibility testing when direct Worker egress is challenged.
 
+`local-relay/start.ps1` automates the compatibility path: it starts `local-relay/server.mjs`, creates/loads the server-only shared secret, starts a Cloudflare Quick Tunnel, writes the tunnel URL into the Worker as `HIPSTER_RELAY_URL`, and redeploys the Worker. Flutter still calls the same public Worker URL.
+
 From the Worker directory:
 
 ```powershell
@@ -378,7 +413,7 @@ pnpm test
 Run only when a real meeting API probe is appropriate:
 
 ```powershell
-$env:MEETING_API_BASE_URL = 'https://<worker>.workers.dev/'
+$env:MEETING_API_BASE_URL = 'https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev/'
 node local-relay/smoke.mjs
 Remove-Item Env:MEETING_API_BASE_URL
 ```
@@ -395,10 +430,34 @@ Quick Tunnel is development infrastructure. The local machine, Node process, tun
 
 `render.yaml` deploys the same fixed-purpose Node relay as a Render Web Service.
 
+The relay is a server-to-server compatibility hop. Flutter never calls it directly:
+
+```mermaid
+%%{init: {"theme":"dark","darkMode":true}}%%
+graph LR;
+    A[Flutter app] --> B[Cloudflare Worker];
+    B --> C[Cloudflare D1];
+    C --> B;
+    B --> D[Render Node relay];
+    D --> E[Provided meeting API];
+    E --> D;
+    D --> B;
+    B --> A;
+```
+
+The Worker authenticates to the relay using `RELAY_SHARED_SECRET`. The upstream provider key is forwarded to the relay transiently for the single fixed `/meetings` request and is then applied to the upstream request. The relay does not own D1 and does not persist meeting or attendee credentials.
+
+The generated Render HTTPS base URL is stored in Cloudflare as `HIPSTER_RELAY_URL`. It is intentionally not a Flutter configuration value. `render.yaml` defines the service name and runtime, while Render assigns the final public hostname at deployment time.
+
 The checked-in Blueprint uses:
 
 ```text
+service name: hipster-meeting-relay
+runtime: node
+plan: free
 rootDir: cloudflare/hipster-meeting-gateway
+build: pnpm install --frozen-lockfile --prod
+start: node local-relay/server.mjs
 health check: /health
 bind host: 0.0.0.0
 secret: RELAY_SHARED_SECRET
@@ -479,7 +538,7 @@ Run Flutter Web through the Worker:
 
 ```powershell
 flutter run -d chrome `
-  --dart-define=MEETING_API_BASE_URL=https://<worker>.workers.dev/
+  --dart-define=MEETING_API_BASE_URL=https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev/
 ```
 
 For a shared/published build, the browser should use the same Worker control plane. Do not place the upstream API credential in browser source or browser storage.
@@ -502,7 +561,7 @@ flutter test
 
 ```powershell
 flutter build apk --debug `
-  --dart-define=MEETING_API_BASE_URL=https://<worker>.workers.dev/
+  --dart-define=MEETING_API_BASE_URL=https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev/
 ```
 
 ### Android release
@@ -522,7 +581,7 @@ Build:
 
 ```powershell
 flutter build appbundle --release `
-  --dart-define=MEETING_API_BASE_URL=https://<worker>.workers.dev/
+  --dart-define=MEETING_API_BASE_URL=https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev/
 ```
 
 Never commit the keystore or `key.properties`.
@@ -533,7 +592,7 @@ The root validation helper runs the main Flutter quality gates, performs reposit
 
 ```powershell
 .\scripts\validate_submission.ps1 `
-  -MeetingApiBaseUrl 'https://<worker>.workers.dev/'
+  -MeetingApiBaseUrl 'https://hipster-meeting-gateway.abhishek-kumar-developer09.workers.dev/'
 ```
 
 ### Worker validation
