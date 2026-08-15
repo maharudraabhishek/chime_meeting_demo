@@ -1,9 +1,21 @@
+# OS / editor files
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*.tmp
+*.bak
+*.orig
+*.log
+*.pid
+.history/
+.vscode/
+.fleet/
+
 # Miscellaneous
 *.class
-*.log
 *.pyc
-*.swp
-.DS_Store
 .atom/
 .build/
 .buildlog/
@@ -18,11 +30,6 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
 # Flutter/Dart/Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
@@ -33,6 +40,27 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Android / Gradle local state
+**/.gradle/
+**/.kotlin/
+**/.cxx/
+**/captures/
+**/local.properties
+**/key.properties
+*.jks
+*.keystore
+
+# Apple local/build state
+**/DerivedData/
+**/Pods/
+**/.symlinks/
+**/xcuserdata/
+**/Flutter/ephemeral/
+*.xcarchive/
+*.dSYM/
+*.mobileprovision
+*.p12
+*.pfx
 
 # Cloudflare local state / secrets
 **/.dev.vars
@@ -55,8 +83,6 @@ app.*.map.json
 
 # Local development and release signing artifacts
 .env
-*.jks
-*.keystore
 key.properties
 
 # Local assistant configuration.
@@ -85,9 +111,4 @@ key.properties
 /STATUS.md
 /changelog/ai/
 
-# Employer-provided private references are local-only. The Postman collection
-# can contain credentials and must never be published.
 /docs/reference/
-
-# Final APK/video handoff artifacts are delivered separately from source.
-/artifacts/
